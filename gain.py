@@ -129,3 +129,9 @@ def gain(data_x, gain_parameters):
 
             # Combine random vectors with observed vectors
             X_mb = M_mb * X_mb + (1 - M_mb) * Z_mb
+
+            # Feed N Run
+            train_step(X=X_mb,M=M_mb,H=H_mb)
+
+
+
