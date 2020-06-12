@@ -70,12 +70,6 @@ def gain(data_x, gain_parameters):
     generator = create_generator()
     discriminator = create_discriminator()
 
-    def generator_loss(fake_output):
-        return
-
-    def discriminator_loss(real_output, fake_output):
-        return
-
     generator_optimizer = tf.keras.optimizers.Adam(1e-4, name='GenOpt')
     discriminator_optimizer = tf.keras.optimizers.Adam(1e-4, name='DiscOpt')
 
@@ -86,46 +80,52 @@ def gain(data_x, gain_parameters):
                                      generator=generator,
                                      discriminator=discriminator)
 
-    EPOCHS = 50
-    BATCH_SIZE = 32
-    noise_dim = 100
-    num_examples_to_generate = 16
-
-    seed = tf.random.normal([num_examples_to_generate, noise_dim])
-
     @tf.function
-    def train_step(images):
-        noise = tf.random.normal([BATCH_SIZE, noise_dim])
-
+    def train_step(X, M, H):
+        """
+            The training schema as defined in the original paper implementation
+            We will use for convenience the same Variable Names in order to Point
+            out the calculations we perform
+        """
         with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
-            generated_images = generator(noise, training=True)
+            # Lets create an Imputation
+            G_sample = generator(X, M)
 
-            real_output = discriminator(images, training=True)
-            fake_output = discriminator(generated_images, training=True)
+            # Combine with observed data
+            Hat_X = X * M + G_sample * (1 - M)
 
-            gen_loss = generator_loss(fake_output)
-            disc_loss = discriminator_loss(real_output, fake_output)
+            # Discriminate Between Them
+            D_prob = discriminator(Hat_X, H)
 
-        gradients_of_generator = gen_tape.gradient(gen_loss, generator.trainable_variables)
-        gradients_of_discriminator = disc_tape.gradient(disc_loss, discriminator.trainable_variables)
+            # Calculate Adversarial Losses(NegLogLik)
+            D_loss_temp = -tf.reduce_mean(M * tf.log(D_prob + 1e-8) + (1 - M) * tf.log(1. - D_prob + 1e-8))
+            G_loss_temp = -tf.reduce_mean((1 - M) * tf.log(D_prob + 1e-8))
+
+            # Add Extra Reconstruction MSE loss in the generator
+            MSE_loss = tf.reduce_mean((M * X - M * G_sample) ** 2) / tf.reduce_mean(M)
+
+            # Finalize Losses
+            D_loss = D_loss_temp
+            G_loss = G_loss_temp + alpha * MSE_loss
+
+        gradients_of_generator = gen_tape.gradient(G_loss, generator.trainable_variables)
+        gradients_of_discriminator = disc_tape.gradient(D_loss, discriminator.trainable_variables)
 
         generator_optimizer.apply_gradients(zip(gradients_of_generator, generator.trainable_variables))
         discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, discriminator.trainable_variables))
 
-    def train(dataset, epochs):
-        for epoch in range(epochs):
-            start = time.time()
+    def train(ITERATIONS, NO, BATCH_SIZE):
+        # Start Iterations
+        for it in tqdm(range(ITERATIONS)):
+            # Sample batch
+            batch_idx = sample_batch_index(NO, BATCH_SIZE)
+            X_mb = norm_data_x[batch_idx, :]
+            M_mb = data_m[batch_idx, :]
+            # Sample random vectors
+            Z_mb = uniform_sampler(0, 0.01, batch_size, dim)
+            # Sample hint vectors
+            H_mb_temp = binary_sampler(hint_rate, batch_size, dim)
+            H_mb = M_mb * H_mb_temp
 
-            for image_batch in dataset:
-                train_step(image_batch)
-
-            display.clear_output(wait=True)
-
-            # Save the model every 15 epochs
-            if (epoch + 1) % 15 == 0:
-                checkpoint.save(file_prefix=checkpoint_prefix)
-
-            print('Time for epoch {} is {} sec'.format(epoch + 1, time.time() - start))
-
-        # Generate after the final epoch
-        display.clear_output(wait=True)
+            # Combine random vectors with observed vectors
+            X_mb = M_mb * X_mb + (1 - M_mb) * Z_mb
