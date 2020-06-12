@@ -30,16 +30,16 @@ def gain(data_x, gain_parameters):
     data_m = 1 - np.isnan(data_x)
 
     # System parameters
-    batch_size = gain_parameters['batch_size']
-    hint_rate = gain_parameters['hint_rate']
-    alpha = gain_parameters['alpha']
-    iterations = gain_parameters['iterations']
+    BATCH_SIZE = gain_parameters['batch_size']
+    HINT_RATE = gain_parameters['hint_rate']
+    ALPHA = gain_parameters['alpha']
+    ITERATIONS = gain_parameters['iterations']
 
     # Other parameters
-    no, dim = data_x.shape
+    NO, DIM = data_x.shape
 
     # Hidden state dimensions
-    h_dim = int(dim)
+    H_DIM = int(DIM)
 
     # Normalization
     norm_data, norm_parameters = normalization(data_x)
@@ -49,10 +49,10 @@ def gain(data_x, gain_parameters):
     # Data + Mask as inputs (Random noise is in missing components)
     def create_generator():
         model = Sequential(name='Generator')
-        model.add(Input(shape=(dim * 2,), name='Generator_Input_Layer', dtype='float32'))
-        model.add(Dense(units=h_dim, activation='relu', name="Generator_Dense_Layer_1"))
-        model.add(Dense(units=h_dim, activation='relu', name="Generator_Dense_Layer_2"))
-        model.add(Dense(units=dim, activation='sigmoid', name="Generator_Output_Layer"))
+        model.add(Input(shape=(DIM * 2,), name='Generator_Input_Layer', dtype='float32'))
+        model.add(Dense(units=H_DIM, activation='relu', name="Generator_Dense_Layer_1"))
+        model.add(Dense(units=H_DIM, activation='relu', name="Generator_Dense_Layer_2"))
+        model.add(Dense(units=DIM, activation='sigmoid', name="Generator_Output_Layer"))
         model.summary()
         return model
 
@@ -60,10 +60,10 @@ def gain(data_x, gain_parameters):
     # Concatenate Data and Hint
     def create_discriminator():
         model = Sequential(name='Discriminator')
-        model.add(Input(shape=(dim * 2,), name='Discriminator_Input_Layer', dtype='float32'))
-        model.add(Dense(units=h_dim, activation='relu', name="Discriminator_Dense_Layer_1"))
-        model.add(Dense(units=h_dim, activation='relu', name="Discriminator_Dense_Layer_2"))
-        model.add(Dense(units=dim, activation='sigmoid', name="Discriminator_Output_Layer"))
+        model.add(Input(shape=(DIM * 2,), name='Discriminator_Input_Layer', dtype='float32'))
+        model.add(Dense(units=H_DIM, activation='relu', name="Discriminator_Dense_Layer_1"))
+        model.add(Dense(units=H_DIM, activation='relu', name="Discriminator_Dense_Layer_2"))
+        model.add(Dense(units=DIM, activation='sigmoid', name="Discriminator_Output_Layer"))
         model.summary()
         return model
 
@@ -87,26 +87,30 @@ def gain(data_x, gain_parameters):
             We will use for convenience the same Variable Names in order to Point
             out the calculations we perform
         """
+        X = tf.cast(X, dtype='float32')
+        M = tf.cast(M, dtype='float32')
+        H = tf.cast(H, dtype='float32')
+
         with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
             # Lets create an Imputation
-            G_sample = generator(X, M)
+            G_sample = generator(tf.concat([X, M], axis=1))
 
             # Combine with observed data
             Hat_X = X * M + G_sample * (1 - M)
 
             # Discriminate Between Them
-            D_prob = discriminator(Hat_X, H)
+            D_prob = discriminator(tf.concat([Hat_X, H], axis=1))
 
             # Calculate Adversarial Losses(NegLogLik)
-            D_loss_temp = -tf.reduce_mean(M * tf.log(D_prob + 1e-8) + (1 - M) * tf.log(1. - D_prob + 1e-8))
-            G_loss_temp = -tf.reduce_mean((1 - M) * tf.log(D_prob + 1e-8))
+            D_loss_temp = -tf.reduce_mean(M * tf.math.log(D_prob + 1e-8) + (1 - M) * tf.math.log(1. - D_prob + 1e-8))
+            G_loss_temp = -tf.reduce_mean((1 - M) * tf.math.log(D_prob + 1e-8))
 
             # Add Extra Reconstruction MSE loss in the generator
             MSE_loss = tf.reduce_mean((M * X - M * G_sample) ** 2) / tf.reduce_mean(M)
 
             # Finalize Losses
             D_loss = D_loss_temp
-            G_loss = G_loss_temp + alpha * MSE_loss
+            G_loss = G_loss_temp + ALPHA * MSE_loss
 
         gradients_of_generator = gen_tape.gradient(G_loss, generator.trainable_variables)
         gradients_of_discriminator = disc_tape.gradient(D_loss, discriminator.trainable_variables)
@@ -114,24 +118,22 @@ def gain(data_x, gain_parameters):
         generator_optimizer.apply_gradients(zip(gradients_of_generator, generator.trainable_variables))
         discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, discriminator.trainable_variables))
 
-    def train(ITERATIONS, NO, BATCH_SIZE):
-        # Start Iterations
+    def train():
         for it in tqdm(range(ITERATIONS)):
             # Sample batch
             batch_idx = sample_batch_index(NO, BATCH_SIZE)
             X_mb = norm_data_x[batch_idx, :]
             M_mb = data_m[batch_idx, :]
             # Sample random vectors
-            Z_mb = uniform_sampler(0, 0.01, batch_size, dim)
+            Z_mb = uniform_sampler(0, 0.01, BATCH_SIZE, DIM)
             # Sample hint vectors
-            H_mb_temp = binary_sampler(hint_rate, batch_size, dim)
+            H_mb_temp = binary_sampler(HINT_RATE, BATCH_SIZE, DIM)
             H_mb = M_mb * H_mb_temp
 
             # Combine random vectors with observed vectors
             X_mb = M_mb * X_mb + (1 - M_mb) * Z_mb
 
             # Feed N Run
-            train_step(X=X_mb,M=M_mb,H=H_mb)
+            train_step(X=X_mb, M=M_mb, H=H_mb)
 
-
-
+    train()
