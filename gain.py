@@ -2,6 +2,9 @@ import tensorflow as tf
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import *
 import numpy as np
+import os
+import time
+from IPython import display
 from tqdm import tqdm
 
 from utils import normalization, renormalization, rounding
@@ -64,71 +67,65 @@ def gain(data_x, gain_parameters):
         model.summary()
         return model
 
-    ## GAIN structure
-    # Create Generator
-    G_sample = generator(X, M)
+    generator = create_generator()
+    discriminator = create_discriminator()
 
-    # Combine with observed data
-    Hat_X = X * M + G_sample * (1 - M)
+    def generator_loss(fake_output):
+        return
 
-    # Discriminator
-    D_prob = discriminator(Hat_X, H)
+    def discriminator_loss(real_output, fake_output):
+        return
 
-    ## GAIN loss
-    D_loss_temp = -tf.reduce_mean(M * tf.log(D_prob + 1e-8) \
-                                  + (1 - M) * tf.log(1. - D_prob + 1e-8))
+    generator_optimizer = tf.keras.optimizers.Adam(1e-4, name='GenOpt')
+    discriminator_optimizer = tf.keras.optimizers.Adam(1e-4, name='DiscOpt')
 
-    G_loss_temp = -tf.reduce_mean((1 - M) * tf.log(D_prob + 1e-8))
+    checkpoint_dir = './training_checkpoints'
+    checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
+    checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
+                                     discriminator_optimizer=discriminator_optimizer,
+                                     generator=generator,
+                                     discriminator=discriminator)
 
-    MSE_loss = \
-        tf.reduce_mean((M * X - M * G_sample) ** 2) / tf.reduce_mean(M)
+    EPOCHS = 50
+    BATCH_SIZE = 32
+    noise_dim = 100
+    num_examples_to_generate = 16
 
-    D_loss = D_loss_temp
-    G_loss = G_loss_temp + alpha * MSE_loss
+    seed = tf.random.normal([num_examples_to_generate, noise_dim])
 
-    ## GAIN solver
-    D_solver = tf.train.AdamOptimizer().minimize(D_loss, var_list=theta_D)
-    G_solver = tf.train.AdamOptimizer().minimize(G_loss, var_list=theta_G)
+    @tf.function
+    def train_step(images):
+        noise = tf.random.normal([BATCH_SIZE, noise_dim])
 
-    ## Iterations
-    sess = tf.Session()
-    sess.run(tf.global_variables_initializer())
+        with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
+            generated_images = generator(noise, training=True)
 
-    # Start Iterations
-    for it in tqdm(range(iterations)):
-        # Sample batch
-        batch_idx = sample_batch_index(no, batch_size)
-        X_mb = norm_data_x[batch_idx, :]
-        M_mb = data_m[batch_idx, :]
-        # Sample random vectors
-        Z_mb = uniform_sampler(0, 0.01, batch_size, dim)
-        # Sample hint vectors
-        H_mb_temp = binary_sampler(hint_rate, batch_size, dim)
-        H_mb = M_mb * H_mb_temp
+            real_output = discriminator(images, training=True)
+            fake_output = discriminator(generated_images, training=True)
 
-        # Combine random vectors with observed vectors
-        X_mb = M_mb * X_mb + (1 - M_mb) * Z_mb
+            gen_loss = generator_loss(fake_output)
+            disc_loss = discriminator_loss(real_output, fake_output)
 
-        _, D_loss_curr = sess.run([D_solver, D_loss_temp],
-                                  feed_dict={M: M_mb, X: X_mb, H: H_mb})
-        _, G_loss_curr, MSE_loss_curr = \
-            sess.run([G_solver, G_loss_temp, MSE_loss],
-                     feed_dict={X: X_mb, M: M_mb, H: H_mb})
+        gradients_of_generator = gen_tape.gradient(gen_loss, generator.trainable_variables)
+        gradients_of_discriminator = disc_tape.gradient(disc_loss, discriminator.trainable_variables)
 
-    ## Return imputed data
-    Z_mb = uniform_sampler(0, 0.01, no, dim)
-    M_mb = data_m
-    X_mb = norm_data_x
-    X_mb = M_mb * X_mb + (1 - M_mb) * Z_mb
+        generator_optimizer.apply_gradients(zip(gradients_of_generator, generator.trainable_variables))
+        discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, discriminator.trainable_variables))
 
-    imputed_data = sess.run([G_sample], feed_dict={X: X_mb, M: M_mb})[0]
+    def train(dataset, epochs):
+        for epoch in range(epochs):
+            start = time.time()
 
-    imputed_data = data_m * norm_data_x + (1 - data_m) * imputed_data
+            for image_batch in dataset:
+                train_step(image_batch)
 
-    # Renormalization
-    imputed_data = renormalization(imputed_data, norm_parameters)
+            display.clear_output(wait=True)
 
-    # Rounding
-    imputed_data = rounding(imputed_data, data_x)
+            # Save the model every 15 epochs
+            if (epoch + 1) % 15 == 0:
+                checkpoint.save(file_prefix=checkpoint_prefix)
 
-    return imputed_data
+            print('Time for epoch {} is {} sec'.format(epoch + 1, time.time() - start))
+
+        # Generate after the final epoch
+        display.clear_output(wait=True)
