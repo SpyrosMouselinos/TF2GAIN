@@ -1,14 +1,11 @@
 import tensorflow as tf
+import tensorflow.keras.backend as kb
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.layers import *
 import numpy as np
 import os
-import time
-from IPython import display
-from tqdm import tqdm
-
+from utils import rmse_loss
 from utils import normalization, renormalization, rounding
-from utils import xavier_init
 from utils import binary_sampler, uniform_sampler, sample_batch_index
 
 
@@ -70,8 +67,8 @@ def gain(data_x, gain_parameters):
     generator = create_generator()
     discriminator = create_discriminator()
 
-    generator_optimizer = tf.keras.optimizers.Adam(1e-4, name='GenOpt')
-    discriminator_optimizer = tf.keras.optimizers.Adam(1e-4, name='DiscOpt')
+    generator_optimizer = tf.keras.optimizers.Adam(1e-3, beta_2=0.98, name='GenOpt')
+    discriminator_optimizer = tf.keras.optimizers.Adam(1e-3, beta_2=0.98, name='DiscOpt')
 
     checkpoint_dir = './training_checkpoints'
     checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
@@ -102,8 +99,8 @@ def gain(data_x, gain_parameters):
             D_prob = discriminator(tf.concat([Hat_X, H], axis=1))
 
             # Calculate Adversarial Losses(NegLogLik)
-            D_loss_temp = -tf.reduce_mean(M * tf.math.log(D_prob + 1e-8) + (1 - M) * tf.math.log(1. - D_prob + 1e-8))
-            G_loss_temp = -tf.reduce_mean((1 - M) * tf.math.log(D_prob + 1e-8))
+            D_loss_temp = -tf.reduce_mean(M * kb.log(D_prob + 1e-8) + (1 - M) * kb.log(1. - D_prob + 1e-8))
+            G_loss_temp = -tf.reduce_mean((1 - M) * kb.log(D_prob + 1e-8))
 
             # Add Extra Reconstruction MSE loss in the generator
             MSE_loss = tf.reduce_mean((M * X - M * G_sample) ** 2) / tf.reduce_mean(M)
@@ -117,9 +114,37 @@ def gain(data_x, gain_parameters):
 
         generator_optimizer.apply_gradients(zip(gradients_of_generator, generator.trainable_variables))
         discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, discriminator.trainable_variables))
+        return D_loss, G_loss
+
+    @tf.function
+    def validation_step(X, M, H):
+        """
+            The validation schema is absent in the original paper implementation
+            We will use for convenience the RMSE Value that is used as a Metric
+            to perform Early Stopping and monitor the During-Training Performance of the Model
+        """
+        ## Return imputed data
+        Z_mb = uniform_sampler(0, 0.01, NO, DIM)
+        M_mb = data_m
+        X_mb = norm_data_x
+        X_mb = M_mb * X_mb + (1 - M_mb) * Z_mb
+
+        imputed_data = generator(tf.concat([X_mb, M_mb], axis=1))[0]
+
+        imputed_data = data_m * norm_data_x + (1 - data_m) * imputed_data
+
+        # Renormalization
+        imputed_data = renormalization(imputed_data, norm_parameters)
+
+        # Rounding
+        imputed_data = rounding(imputed_data, data_x)
+
+        rmse = rmse_loss(ori_data_x, imputed_data_x, data_m)
+
+        return rmse
 
     def train():
-        for it in tqdm(range(ITERATIONS)):
+        for idx in range(ITERATIONS):
             # Sample batch
             batch_idx = sample_batch_index(NO, BATCH_SIZE)
             X_mb = norm_data_x[batch_idx, :]
@@ -129,11 +154,28 @@ def gain(data_x, gain_parameters):
             # Sample hint vectors
             H_mb_temp = binary_sampler(HINT_RATE, BATCH_SIZE, DIM)
             H_mb = M_mb * H_mb_temp
-
             # Combine random vectors with observed vectors
             X_mb = M_mb * X_mb + (1 - M_mb) * Z_mb
-
             # Feed N Run
-            train_step(X=X_mb, M=M_mb, H=H_mb)
+            dl, gl = train_step(X=X_mb, M=M_mb, H=H_mb)
+            if idx % 500 == 0:
+                print('Generator Loss: ' + str(gl.numpy()) + ' Discriminator Loss: ' + str(dl.numpy()))
 
     train()
+    ## Return imputed data
+    Z_mb = uniform_sampler(0, 0.01, NO, DIM)
+    M_mb = data_m
+    X_mb = norm_data_x
+    X_mb = M_mb * X_mb + (1 - M_mb) * Z_mb
+
+    imputed_data = generator(tf.concat([X_mb, M_mb], axis=1))[0]
+
+    imputed_data = data_m * norm_data_x + (1 - data_m) * imputed_data
+
+    # Renormalization
+    imputed_data = renormalization(imputed_data, norm_parameters)
+
+    # Rounding
+    imputed_data = rounding(imputed_data, data_x)
+
+    return imputed_data
