@@ -9,7 +9,8 @@ from utils import normalization, renormalization, rounding
 from utils import binary_sampler, uniform_sampler, sample_batch_index
 
 
-def gain(ori_data_x, ori_data_x_test, data_x, data_x_test, gain_parameters, column_names=None, target_column=None, train_y=None, test_y=None):
+def gain(ori_data_x, ori_data_x_test, data_x, data_x_test, gain_parameters, column_names=None, target_column=None,
+         train_y=None, test_y=None):
     """Impute missing values in data_x
 
   Args:
@@ -165,12 +166,11 @@ def gain(ori_data_x, ori_data_x_test, data_x, data_x_test, gain_parameters, colu
                 rmse_new, imputed_data = validation_step()
                 if rmse_new < rmse_old:
                     rmse_old = rmse_new
-                    df = pd.DataFrame(data=imputed_data, columns=list(column_names)[:-1])
-                    df[target_column] = test_y
-                    df.to_csv('Imputed_Data.csv', index=False)
+                    imputed_data_return = imputed_data
                 else:
                     counter += 1
             if counter > 5:
-                break
-    train()
-    return
+                return imputed_data_return
+
+    imputed_data_return = train()
+    return imputed_data_return

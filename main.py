@@ -34,12 +34,13 @@ def main(args):
                        'alpha': args.alpha,
                        'iterations': args.iterations}
 
-    target_column = 'spam'
+    target_column = None
     # Load data and introduce missingness
     ori_data_x, miss_data_x, _, ori_data_x_test, miss_data_x_test, _, column_names, train_y, train_y_test = data_loader(
         data_name, miss_rate, 0.3, target_column)
     # Impute missing data
-    gain(ori_data_x, ori_data_x_test, miss_data_x, miss_data_x_test, gain_parameters, column_names, target_column, train_y, train_y_test)
+    imputed_test_frame = gain(ori_data_x, ori_data_x_test, miss_data_x, miss_data_x_test, gain_parameters, column_names, target_column, train_y, train_y_test)
+
     return
 
 
@@ -48,7 +49,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--data_name',
-        default='spam',
+        default='letter',
         type=str)
     parser.add_argument(
         '--miss_rate',

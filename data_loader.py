@@ -21,15 +21,14 @@ def data_loader(data_name, miss_rate, validation_split=0.3, target_column=None):
     print(file_name)
     data_x = pd.read_csv(file_name, delimiter=',')
     column_names = data_x.columns
-    train_x, test_x = train_test_split(data_x, test_size=validation_split, random_state=666)
-    train_y = train_x.pop(target_column)
+    # train_x, test_x = train_test_split(data_x, test_size=validation_split, random_state=42)
+    train_x = data_x.copy()
+    test_x = data_x.copy()
+    train_y = train_x.pop(target_column) if target_column is not None else None
     train_x = train_x.values
-    train_y_test = test_x.pop(target_column)
+    train_y_test = test_x.pop(target_column) if target_column is not None else None
     test_x = test_x.values
-    try:
-        print('ok')
-    except:
-       print(f"No dataset with prefix {data_name} found! Check the data folder!\n")
+
 
     # Parameters
     no_train, dim_train = train_x.shape
@@ -38,8 +37,8 @@ def data_loader(data_name, miss_rate, validation_split=0.3, target_column=None):
     # Introduce missing data
     data_m_train = binary_sampler(1 - miss_rate, no_train, dim_train)
     data_m_test = binary_sampler(1 - miss_rate, no_test, dim_test)
-    miss_data_x_train = train_x.copy()
-    miss_data_x_test = test_x.copy()
+    miss_data_x_train = train_x.astype('float32').copy()
+    miss_data_x_test = test_x.astype('float32').copy()
     miss_data_x_train[data_m_train == 0] = np.nan
     miss_data_x_test[data_m_test == 0] = np.nan
     return train_x, miss_data_x_train, data_m_train, test_x, miss_data_x_test, data_m_test, column_names, train_y, train_y_test
