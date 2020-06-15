@@ -51,7 +51,7 @@ def renormalization(norm_data, norm_parameters):
     max_val = norm_parameters['max_val']
 
     _, dim = norm_data.shape
-    renorm_data = norm_data.numpy().copy()
+    renorm_data = norm_data.copy()
 
     for i in range(dim):
         renorm_data[:, i] = renorm_data[:, i] * (max_val[i] + 1e-6)

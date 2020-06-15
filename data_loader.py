@@ -1,9 +1,11 @@
 import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
 from utils import binary_sampler
 
 
 
-def data_loader(data_name, miss_rate):
+def data_loader(data_name, miss_rate, validation_split=0.3, target_column=None):
     """Loads datasets and introduce missingness.
 
     Args:
@@ -15,19 +17,29 @@ def data_loader(data_name, miss_rate):
       miss_data_x: data with missing values
       data_m: indicator matrix for missing components
     """
-
+    file_name = 'data/' + data_name + '.csv'
+    print(file_name)
+    data_x = pd.read_csv(file_name, delimiter=',')
+    column_names = data_x.columns
+    train_x, test_x = train_test_split(data_x, test_size=validation_split, random_state=666)
+    train_y = train_x.pop(target_column)
+    train_x = train_x.values
+    train_y_test = test_x.pop(target_column)
+    test_x = test_x.values
     try:
-        file_name = 'data/' + data_name + '.csv'
-        data_x = np.loadtxt(file_name, delimiter=",", skiprows=1)
+        print('ok')
     except:
-        print(f"No dataset with prefix {data_name} found! Check the data folder!\n")
+       print(f"No dataset with prefix {data_name} found! Check the data folder!\n")
 
     # Parameters
-    no, dim = data_x.shape
+    no_train, dim_train = train_x.shape
+    no_test, dim_test = test_x.shape
 
     # Introduce missing data
-    data_m = binary_sampler(1 - miss_rate, no, dim)
-    miss_data_x = data_x.copy()
-    miss_data_x[data_m == 0] = np.nan
-
-    return data_x, miss_data_x, data_m
+    data_m_train = binary_sampler(1 - miss_rate, no_train, dim_train)
+    data_m_test = binary_sampler(1 - miss_rate, no_test, dim_test)
+    miss_data_x_train = train_x.copy()
+    miss_data_x_test = test_x.copy()
+    miss_data_x_train[data_m_train == 0] = np.nan
+    miss_data_x_test[data_m_test == 0] = np.nan
+    return train_x, miss_data_x_train, data_m_train, test_x, miss_data_x_test, data_m_test, column_names, train_y, train_y_test

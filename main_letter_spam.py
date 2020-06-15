@@ -34,19 +34,13 @@ def main(args):
                        'alpha': args.alpha,
                        'iterations': args.iterations}
 
+    target_column = 'spam'
     # Load data and introduce missingness
-    ori_data_x, miss_data_x, data_m = data_loader(data_name, miss_rate)
-
+    ori_data_x, miss_data_x, _, ori_data_x_test, miss_data_x_test, _, column_names, train_y, train_y_test = data_loader(
+        data_name, miss_rate, 0.3, target_column)
     # Impute missing data
-    imputed_data_x = gain(miss_data_x, gain_parameters)
-
-    # Report the RMSE performance
-    rmse = rmse_loss(ori_data_x, imputed_data_x, data_m)
-
-    print()
-    print('RMSE Performance: ' + str(np.round(rmse, 4)))
-
-    return imputed_data_x, rmse
+    gain(ori_data_x, ori_data_x_test, miss_data_x, miss_data_x_test, gain_parameters, column_names, target_column, train_y, train_y_test)
+    return
 
 
 if __name__ == '__main__':
@@ -85,4 +79,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Calls main function
-    imputed_data, rmse = main(args)
+    main(args)
