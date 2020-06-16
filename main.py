@@ -29,18 +29,19 @@ def main(args):
     data_name = args.data_name
     miss_rate = args.miss_rate
 
-    gain_parameters = {'batch_size': args.batch_size,
-                       'hint_rate': args.hint_rate,
-                       'alpha': args.alpha,
-                       'iterations': args.iterations}
+    dataset_target_columns = {
+        'spam': 'spam',
+        'letter': None,
+        'breast': 'diagnosis',
+        'credit': 'outcome',
+        'heart': 'outcome',
+        'pima': 'outcome',
+    }
 
-    target_column = None
-    # Load data and introduce missingness
-    ori_data_x, miss_data_x, _, ori_data_x_test, miss_data_x_test, _, column_names, train_y, train_y_test = data_loader(
-        data_name, miss_rate, 0.3, target_column)
-    # Impute missing data
-    imputed_test_frame = gain(ori_data_x, ori_data_x_test, miss_data_x, miss_data_x_test, gain_parameters, column_names, target_column, train_y, train_y_test)
+    target_column = dataset_target_columns[data_name]
 
+    (train_x, train_y, miss_train_x), (test_x, test_y, miss_test_x) = data_loader(data_name, miss_rate, target_column)
+    gain(miss_train_x, train_y, miss_test_x, test_y, test_x, target_column)
     return
 
 
@@ -49,7 +50,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--data_name',
-        default='letter',
+        default='spam',
         type=str)
     parser.add_argument(
         '--miss_rate',

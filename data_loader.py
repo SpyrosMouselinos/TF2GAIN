@@ -4,8 +4,7 @@ from sklearn.model_selection import train_test_split
 from utils import binary_sampler
 
 
-
-def data_loader(data_name, miss_rate, validation_split=0.3, target_column=None):
+def data_loader(data_name, miss_rate, target_column=None):
     """Loads datasets and introduce missingness.
 
     Args:
@@ -20,15 +19,9 @@ def data_loader(data_name, miss_rate, validation_split=0.3, target_column=None):
     file_name = 'data/' + data_name + '.csv'
     print(file_name)
     data_x = pd.read_csv(file_name, delimiter=',')
-    column_names = data_x.columns
-    # train_x, test_x = train_test_split(data_x, test_size=validation_split, random_state=42)
-    train_x = data_x.copy()
-    test_x = data_x.copy()
+    train_x, test_x = train_test_split(data_x, test_size=0.3, random_state=42, shuffle=True)
     train_y = train_x.pop(target_column) if target_column is not None else None
-    train_x = train_x.values
-    train_y_test = test_x.pop(target_column) if target_column is not None else None
-    test_x = test_x.values
-
+    test_y = test_x.pop(target_column) if target_column is not None else None
 
     # Parameters
     no_train, dim_train = train_x.shape
@@ -37,8 +30,12 @@ def data_loader(data_name, miss_rate, validation_split=0.3, target_column=None):
     # Introduce missing data
     data_m_train = binary_sampler(1 - miss_rate, no_train, dim_train)
     data_m_test = binary_sampler(1 - miss_rate, no_test, dim_test)
-    miss_data_x_train = train_x.astype('float32').copy()
-    miss_data_x_test = test_x.astype('float32').copy()
-    miss_data_x_train[data_m_train == 0] = np.nan
-    miss_data_x_test[data_m_test == 0] = np.nan
-    return train_x, miss_data_x_train, data_m_train, test_x, miss_data_x_test, data_m_test, column_names, train_y, train_y_test
+    miss_train_x = train_x.astype('float32').copy()
+    miss_test_x = test_x.astype('float32').copy()
+    miss_train_x = miss_train_x.values
+    miss_test_x = miss_test_x.values
+    miss_train_x[data_m_train == 0] = np.nan
+    miss_test_x[data_m_test == 0] = np.nan
+    miss_train_x = pd.DataFrame(data=miss_train_x, columns=train_x.columns)
+    miss_test_x = pd.DataFrame(data=miss_test_x, columns=test_x.columns)
+    return (train_x, train_y, miss_train_x), (test_x, test_y, miss_test_x)
