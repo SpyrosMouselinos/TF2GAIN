@@ -19,7 +19,16 @@ class MinMaxNormalizer:
         self.is_fit_ = True
         self.n_feats_ = len(pandas_data.columns)
         for column in pandas_data.columns:
-            if self.excluded_columns_ is not None and column not in self.excluded_columns_  :
+            if self.excluded_columns_ is not None:
+                if column not in self.excluded_columns_:
+                    self.internal_dict.update({
+                        column: {
+                            'min': pandas_data[column].min(),
+                            'max': pandas_data[column].max(),
+                            'range': pandas_data[column].max() - pandas_data[column].min(),
+                        }
+                    })
+            else:
                 self.internal_dict.update({
                     column: {
                         'min': pandas_data[column].min(),
@@ -27,6 +36,7 @@ class MinMaxNormalizer:
                         'range': pandas_data[column].max() - pandas_data[column].min(),
                     }
                 })
+
         return
 
     def transform(self, pandas_data, fill_na=None):

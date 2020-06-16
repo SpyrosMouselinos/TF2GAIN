@@ -3,7 +3,7 @@ from model import train
 from normalizer import MinMaxNormalizer
 
 
-def gain(miss_train_x, train_y, miss_test_x, test_y, test_x, target_column):
+def gain(ori_train_x, ori_test_x, miss_train_x, train_y, miss_test_x, test_y, train_x, test_x, target_column):
     """Impute missing values in data_x
 
   Args:
@@ -12,6 +12,7 @@ def gain(miss_train_x, train_y, miss_test_x, test_y, test_x, target_column):
     - miss_test_x: validation data with missing values
     - test_y: validation target column
     - test_x: Non-empty Validation Data for reconstruction Purposes
+    - train_x: Non-empty Train Data for reconstruction Purposes
     - target_column: the name of the target column in order to reconstruct imputed data into a dataframe
     - gain_parameters: The Training/Model Parameters
 
@@ -27,6 +28,6 @@ def gain(miss_train_x, train_y, miss_test_x, test_y, test_x, target_column):
     norm_train_x = normalizer.transform(miss_train_x, fill_na=0)
     norm_test_x = normalizer.transform(miss_test_x, fill_na=0)
 
-    train(norm_train_x=norm_train_x, data_m=data_m, norm_test_x=norm_test_x, data_m_test=data_m_test, train_x=None,
-          test_x=None)
+    train(ori_train_x=ori_train_x, ori_test_x=ori_test_x,norm_train_x=norm_train_x, data_m=data_m, norm_test_x=norm_test_x, data_m_test=data_m_test, train_x=train_x,
+          test_x=test_x, normalizer=normalizer)
     return

@@ -40,8 +40,9 @@ def main(args):
 
     target_column = dataset_target_columns[data_name]
 
-    (train_x, train_y, miss_train_x), (test_x, test_y, miss_test_x) = data_loader(data_name, miss_rate, target_column)
-    gain(miss_train_x, train_y, miss_test_x, test_y, test_x, target_column)
+    (ori_train_x, train_x, train_y, miss_train_x), (ori_test_x, test_x, test_y, miss_test_x) = data_loader(data_name, miss_rate, target_column)
+    gain(ori_train_x=ori_train_x, ori_test_x=ori_test_x,miss_train_x=miss_train_x, miss_test_x=miss_test_x, train_x=train_x, test_x=test_x,
+         target_column=target_column, train_y=train_y, test_y=test_y)
     return
 
 
@@ -50,35 +51,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--data_name',
-        default='spam',
+        default='breast',
         type=str)
     parser.add_argument(
         '--miss_rate',
         help='missing data probability',
         default=0.2,
         type=float)
-    parser.add_argument(
-        '--batch_size',
-        help='the number of samples in mini-batch',
-        default=128,
-        type=int)
-    parser.add_argument(
-        '--hint_rate',
-        help='hint probability',
-        default=0.9,
-        type=float)
-    parser.add_argument(
-        '--alpha',
-        help='hyperparameter',
-        default=100,
-        type=float)
-    parser.add_argument(
-        '--iterations',
-        help='number of training interations',
-        default=10000,
-        type=int)
-
     args = parser.parse_args()
-
-    # Calls main function
     main(args)

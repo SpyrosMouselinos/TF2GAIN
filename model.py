@@ -72,33 +72,32 @@ def train_step(generator, gen_opt, discriminator, disc_opt, X, M, H):
     return D_loss, G_loss
 
 
-def evaluation_step(generator, data_m_test, norm_data_x_test, data_x_test,
-                    ori_data_x_test, normalizer):
+def evaluation_step(generator, data_m, norm_data_x, data_x,
+                    ori_data_x, normalizer):
     """
         The validation schema is absent in the original paper implementation
         We will use for convenience the RMSE Value that is used as a Metric
         to perform Early Stopping and monitor the During-Training Performance of the Model
     """
-    Z_mb = uniform_sampler(0, 0.01, data_m_test.shape[0], data_m_test.shape[1])
+    Z_mb = uniform_sampler(0, 0.01, data_m.shape[0], data_m.shape[1])
     Z_mb = Z_mb.astype('float32')
-    M_mb = data_m_test
+    M_mb = data_m
     M_mb = M_mb.astype('float32')
-    X_mb = norm_data_x_test
+    X_mb = norm_data_x
     X_mb = X_mb.astype('float32')
     X_mb = M_mb * X_mb + (1 - M_mb) * Z_mb
 
-    imputed_data = generator.predict(tf.concat([X_mb, M_mb], axis=1))[0]
-    imputed_data = data_m_test * norm_data_x_test + (1 - data_m_test) * imputed_data
+    imputed_data = generator.predict(tf.concat([X_mb.values, M_mb.values], axis=1))[0]
+    imputed_data = data_m * norm_data_x + (1 - data_m) * imputed_data
 
     # Renormalization
-    imputed_data = renormalization(imputed_data, norm_parameters)
+    imputed_data = normalizer.denormalize(imputed_data)
 
     # Rounding
-    imputed_data = rounding(imputed_data, data_x_test)
+    imputed_data = rounding(imputed_data.values, data_x.values)
 
-    rmse = rmse_loss(ori_data_x_test, imputed_data, data_m_test)
-    print(f"Validation RMSE:{rmse}")
-    return rmse, imputed_data
+    rmse = rmse_loss(ori_data_x.values, imputed_data, data_m.values)
+    return rmse
 
 
 def prepare_train_pipeline(norm_train_x, data_m):
@@ -130,14 +129,14 @@ def prepare_train_pipeline(norm_train_x, data_m):
     return tf_data
 
 
-def train(norm_train_x, data_m, norm_test_x, data_m_test, train_x, test_x):
+def train(ori_train_x, ori_test_x, norm_train_x, data_m, norm_test_x, data_m_test, train_x, test_x, normalizer):
     # Create Models
     generator = create_generator(DIM=norm_train_x.shape[1])
     discriminator = create_discriminator(DIM=norm_train_x.shape[1])
 
     # Create Optimizers
-    gen_opt = tf.keras.optimizers.Adam(1e-3, name='GenOpt')
-    disc_opt = tf.keras.optimizers.Adam(1e-3, name='DiscOpt')
+    gen_opt = tf.keras.optimizers.Adam(4e-4, name='GenOpt')
+    disc_opt = tf.keras.optimizers.Adam(4e-4, name='DiscOpt')
 
     # Iteration Counter
     counter = 0
@@ -160,14 +159,17 @@ def train(norm_train_x, data_m, norm_test_x, data_m_test, train_x, test_x):
         print('Generator Epoch Loss: ' + str(np.array(gen_running_avg).mean()) + ' Discriminator Epoch Loss: ' + str(
             np.array(disc_running_avg).mean()))
 
-    #     # On Epoch End
-    #     rmse_new = evaluation_step(generator, data_m_test, norm_data_x_test,
-    #                                              norm_parameters, data_x_test,
-    #                                              ori_data_x_test)
-    #     if rmse_new < rmse_old:
-    #         rmse_old = rmse_new
-    #         imputed_data_return = imputed_data
-    #     else:
-    #         counter += 1
-    # if counter > 5:
-    #     return
+        # On Epoch End
+        train_rmse = evaluation_step(generator=generator, data_m=data_m, norm_data_x=norm_train_x, data_x=train_x,
+                                     ori_data_x=ori_train_x, normalizer=normalizer)
+        print(f"TRAIN RMSE:{train_rmse}")
+        # On Epoch End
+        rmse_new = evaluation_step(generator=generator, data_m=data_m_test, norm_data_x=norm_test_x, data_x=test_x,
+                                   ori_data_x=ori_test_x, normalizer=normalizer)
+        print(f"TEST RMSE:{rmse_new}")
+        if rmse_new < rmse_old:
+            rmse_old = rmse_new
+        else:
+            counter += 1
+        if counter > 5:
+            return
