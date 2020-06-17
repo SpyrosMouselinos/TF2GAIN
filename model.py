@@ -6,6 +6,7 @@ from utils import rmse_loss
 from utils import renormalization, rounding
 from utils import uniform_sampler, binary_sampler
 import numpy as np
+import pandas as pd
 
 
 # Generator
@@ -94,10 +95,12 @@ def evaluation_step(generator, data_m, norm_data_x, data_x,
     imputed_data = normalizer.denormalize(imputed_data)
 
     # Rounding
-    imputed_data = rounding(imputed_data.values, data_x.values)
+    imputed_data_values = rounding(imputed_data.values, data_x.values)
 
-    rmse = rmse_loss(ori_data_x.values, imputed_data, data_m.values)
-    return rmse
+    rmse = rmse_loss(ori_data_x.values, imputed_data_values, data_m.values)
+    imputed_and_rounded_df_to_use_for_downstream_task = pd.DataFrame(data=imputed_data_values,
+                                                                     columns=imputed_data.columns)
+    return rmse, imputed_and_rounded_df_to_use_for_downstream_task
 
 
 def prepare_train_pipeline(norm_train_x, data_m):
@@ -129,7 +132,8 @@ def prepare_train_pipeline(norm_train_x, data_m):
     return tf_data
 
 
-def train(ori_train_x, ori_test_x, norm_train_x, data_m, norm_test_x, data_m_test, train_x, test_x, normalizer, dataset_name):
+def train(ori_train_x, ori_test_x, norm_train_x, data_m, norm_test_x, data_m_test, train_x, test_x, normalizer,
+          dataset_name):
     # Create Models
     generator = create_generator(DIM=norm_train_x.shape[1])
     discriminator = create_discriminator(DIM=norm_train_x.shape[1])
@@ -143,6 +147,8 @@ def train(ori_train_x, ori_test_x, norm_train_x, data_m, norm_test_x, data_m_tes
 
     # Dummy Initialization of the evaluation metric
     rmse_old = 500
+    train_frame = None
+    test_frame = None
 
     tf_data = prepare_train_pipeline(norm_train_x, data_m)
     for epoch in range(500):
@@ -160,17 +166,19 @@ def train(ori_train_x, ori_test_x, norm_train_x, data_m, norm_test_x, data_m_tes
             np.array(disc_running_avg).mean()))
 
         # On Epoch End
-        train_rmse = evaluation_step(generator=generator, data_m=data_m, norm_data_x=norm_train_x, data_x=train_x,
+        train_rmse, train_frame_new = evaluation_step(generator=generator, data_m=data_m, norm_data_x=norm_train_x, data_x=train_x,
                                      ori_data_x=ori_train_x, normalizer=normalizer)
         print(f"TRAIN RMSE:{train_rmse}")
         # On Epoch End
-        rmse_new = evaluation_step(generator=generator, data_m=data_m_test, norm_data_x=norm_test_x, data_x=test_x,
+        rmse_new, test_frame_new = evaluation_step(generator=generator, data_m=data_m_test, norm_data_x=norm_test_x, data_x=test_x,
                                    ori_data_x=ori_test_x, normalizer=normalizer)
         print(f"TEST RMSE:{rmse_new}")
         if rmse_new < rmse_old:
             rmse_old = rmse_new
+            train_frame = train_frame_new
+            test_frame = test_frame_new
             generator.save(f'./models/{dataset_name}.h5')
         else:
             counter += 1
         if counter > 5:
-            return
+            return train_frame, test_frame
