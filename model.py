@@ -9,6 +9,56 @@ import numpy as np
 import pandas as pd
 
 
+class DDBlock(tf.keras.layers.Layer):
+    """
+        A simple Dense - Activation - Dropout Building Block
+    """
+
+    def __init__(self, units, rate, activation=None, name='DDBlock'):
+        super(DDBlock, self).__init__(name=name)
+        self.dense = Dense(units=units, kernel_initializer="he_normal")
+        if activation:
+            self.act = Activation(activation)
+        else:
+            self.act = PReLU()
+        self.dropout = Dropout(rate=rate)
+
+    def call(self, inputs, training=None):
+        x = self.dense(inputs)
+        x = self.act(x)
+        x = self.dropout(x, training=training)
+        return x
+
+
+class FFN(tf.keras.Model):
+    """
+        A  Feed Forward Network used in VSP Paper
+    """
+
+    def __init__(self, name='FFN'):
+        super(FFN, self).__init__(name=name)
+        self.block_1 = DDBlock(units=256, activation='relu', rate=0.5)
+        self.block_2 = DDBlock(units=256, activation='relu', rate=0.5)
+        self.block_3 = DDBlock(units=256, activation='relu', rate=0.5)
+        self.block_4 = DDBlock(units=256, activation='relu', rate=0.0)
+        self.linear_output = Dense(units=1, activation='sigmoid')
+        return
+
+    def __call__(self, q, training=None):
+        signal = q
+        signal = self.block_1(signal, training=training)
+        signal = self.block_2(signal, training=training)
+        signal = self.block_3(signal, training=training)
+        signal = self.block_4(signal, training=training)
+        x = self.linear_output(signal)
+        return x
+
+
+def create_truck_model():
+    model = FFN()
+    model.summary()
+    return model
+
 # Generator
 # Data + Mask as inputs (Random noise is in missing components)
 def create_generator(DIM):
@@ -166,18 +216,20 @@ def train(ori_train_x, ori_test_x, norm_train_x, data_m, norm_test_x, data_m_tes
             np.array(disc_running_avg).mean()))
 
         # On Epoch End
-        train_rmse, train_frame_new = evaluation_step(generator=generator, data_m=data_m, norm_data_x=norm_train_x, data_x=train_x,
-                                     ori_data_x=ori_train_x, normalizer=normalizer)
+        train_rmse, train_frame_new = evaluation_step(generator=generator, data_m=data_m, norm_data_x=norm_train_x,
+                                                      data_x=train_x,
+                                                      ori_data_x=ori_train_x, normalizer=normalizer)
         print(f"TRAIN RMSE:{train_rmse}")
         # On Epoch End
-        rmse_new, test_frame_new = evaluation_step(generator=generator, data_m=data_m_test, norm_data_x=norm_test_x, data_x=test_x,
-                                   ori_data_x=ori_test_x, normalizer=normalizer)
+        rmse_new, test_frame_new = evaluation_step(generator=generator, data_m=data_m_test, norm_data_x=norm_test_x,
+                                                   data_x=test_x,
+                                                   ori_data_x=ori_test_x, normalizer=normalizer)
         print(f"TEST RMSE:{rmse_new}")
         if rmse_new < rmse_old:
             rmse_old = rmse_new
             train_frame = train_frame_new
             test_frame = test_frame_new
-            generator.save(f'./models/{dataset_name}.h5')
+            # generator.save(f'./models/{dataset_name}.h5')
         else:
             counter += 1
         if counter > 5:

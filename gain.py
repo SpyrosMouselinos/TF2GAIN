@@ -33,7 +33,7 @@ def gain(ori_train_x, ori_test_x, miss_train_x, train_y, miss_test_x, test_y, tr
                                     data_m=data_m, norm_test_x=norm_test_x, data_m_test=data_m_test, train_x=train_x,
                                     test_x=test_x, normalizer=normalizer, dataset_name=dataset_name)
     train_frame = normalizer.transform(train_frame)
-    train_frame[target_column] = train_y
+    train_frame[target_column] = train_y.values
     test_frame = normalizer.transform(test_frame)
-    test_frame[target_column] = test_y
+    test_frame[target_column] = test_y.values
     return train_frame, test_frame
