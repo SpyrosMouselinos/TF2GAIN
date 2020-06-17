@@ -19,7 +19,8 @@ def data_loader(data_name, miss_rate, target_column=None):
     file_name = 'data/' + data_name + '.csv'
     print(file_name)
     data_x = pd.read_csv(file_name, delimiter=',')
-    train_x, test_x = train_test_split(data_x, test_size=0.33, random_state=666, shuffle=True)
+    train_x, test_x = train_test_split(data_x, test_size=0.3, random_state=666, shuffle=True,
+                                       stratify=data_x[target_column].values)
     if target_column is not None:
         train_y = train_x.pop(target_column)
     else:
