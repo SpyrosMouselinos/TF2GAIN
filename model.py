@@ -129,14 +129,14 @@ def prepare_train_pipeline(norm_train_x, data_m):
     return tf_data
 
 
-def train(ori_train_x, ori_test_x, norm_train_x, data_m, norm_test_x, data_m_test, train_x, test_x, normalizer):
+def train(ori_train_x, ori_test_x, norm_train_x, data_m, norm_test_x, data_m_test, train_x, test_x, normalizer, dataset_name):
     # Create Models
     generator = create_generator(DIM=norm_train_x.shape[1])
     discriminator = create_discriminator(DIM=norm_train_x.shape[1])
 
     # Create Optimizers
-    gen_opt = tf.keras.optimizers.Adam(4e-4, name='GenOpt')
-    disc_opt = tf.keras.optimizers.Adam(4e-4, name='DiscOpt')
+    gen_opt = tf.keras.optimizers.Adam(3e-4, name='GenOpt')
+    disc_opt = tf.keras.optimizers.Adam(3e-4, name='DiscOpt')
 
     # Iteration Counter
     counter = 0
@@ -169,6 +169,7 @@ def train(ori_train_x, ori_test_x, norm_train_x, data_m, norm_test_x, data_m_tes
         print(f"TEST RMSE:{rmse_new}")
         if rmse_new < rmse_old:
             rmse_old = rmse_new
+            generator.save(f'./models/{dataset_name}.h5')
         else:
             counter += 1
         if counter > 5:

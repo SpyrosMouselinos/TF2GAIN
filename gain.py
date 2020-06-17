@@ -3,7 +3,7 @@ from model import train
 from normalizer import MinMaxNormalizer
 
 
-def gain(ori_train_x, ori_test_x, miss_train_x, train_y, miss_test_x, test_y, train_x, test_x, target_column):
+def gain(ori_train_x, ori_test_x, miss_train_x, train_y, miss_test_x, test_y, train_x, test_x, target_column,dataset_name):
     """Impute missing values in data_x
 
   Args:
@@ -29,5 +29,5 @@ def gain(ori_train_x, ori_test_x, miss_train_x, train_y, miss_test_x, test_y, tr
     norm_test_x = normalizer.transform(miss_test_x, fill_na=0)
 
     train(ori_train_x=ori_train_x, ori_test_x=ori_test_x,norm_train_x=norm_train_x, data_m=data_m, norm_test_x=norm_test_x, data_m_test=data_m_test, train_x=train_x,
-          test_x=test_x, normalizer=normalizer)
+          test_x=test_x, normalizer=normalizer, dataset_name=dataset_name)
     return

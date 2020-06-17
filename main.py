@@ -10,7 +10,7 @@ from gain import gain
 from utils import rmse_loss
 
 
-def main(args):
+def perform_experiments(data_name, miss_rate):
     """Main function for UCI letter and spam datasets.
 
   Args:
@@ -26,9 +26,6 @@ def main(args):
     - rmse: Root Mean Squared Error
   """
 
-    data_name = args.data_name
-    miss_rate = args.miss_rate
-
     dataset_target_columns = {
         'spam': 'spam',
         'letter': None,
@@ -40,23 +37,19 @@ def main(args):
 
     target_column = dataset_target_columns[data_name]
 
-    (ori_train_x, train_x, train_y, miss_train_x), (ori_test_x, test_x, test_y, miss_test_x) = data_loader(data_name, miss_rate, target_column)
-    gain(ori_train_x=ori_train_x, ori_test_x=ori_test_x,miss_train_x=miss_train_x, miss_test_x=miss_test_x, train_x=train_x, test_x=test_x,
-         target_column=target_column, train_y=train_y, test_y=test_y)
+    (ori_train_x, train_x, train_y, miss_train_x), (ori_test_x, test_x, test_y, miss_test_x) = data_loader(data_name,
+                                                                                                           miss_rate,
+                                                                                                           target_column)
+    gain(ori_train_x=ori_train_x, ori_test_x=ori_test_x, miss_train_x=miss_train_x, miss_test_x=miss_test_x,
+         train_x=train_x, test_x=test_x,
+         target_column=target_column, train_y=train_y, test_y=test_y,
+         dataset_name=str(data_name) + '_' + str(int(100 * miss_rate)))
     return
 
 
-if __name__ == '__main__':
-    # Inputs for the main function
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--data_name',
-        default='breast',
-        type=str)
-    parser.add_argument(
-        '--miss_rate',
-        help='missing data probability',
-        default=0.2,
-        type=float)
-    args = parser.parse_args()
-    main(args)
+experiment_names = ['spam', 'letter', 'breast', 'credit', 'heart', 'pima']
+missing_rates = [0.2, 0.4, 0.6, 0.8]
+
+for en in experiment_names:
+    for mr in missing_rates:
+        perform_experiments(data_name=en, miss_rate=mr)
