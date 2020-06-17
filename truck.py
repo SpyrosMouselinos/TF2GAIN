@@ -72,8 +72,8 @@ class DNNNetwork:
                 val_metric = tf.keras.metrics.MeanSquaredError(name='val_loss')
                 train_loss = tf.keras.losses.MSE
             elif self.task == 'classification':
-                train_metric = tf.keras.metrics.AUC(name='train_loss')
-                val_metric = tf.keras.metrics.AUC(name='val_loss')
+                train_metric = tf.keras.metrics.BinaryAccuracy(name='train_loss')
+                val_metric = tf.keras.metrics.BinaryAccuracy(name='val_loss')
                 train_loss = wbce
 
             if self.task == 'regression':
@@ -154,7 +154,7 @@ class DNNNetwork:
 
                     for x, y in x_dataset_val:
                         validation_step(self.model, x, y)
-                    print('Epoch {} Training AUC {:.4f} / Validation AUC {:.4f}'.format(epoch + 1,
+                    print('Epoch {} Training ACC {:.4f} / Validation ACC {:.4f}'.format(epoch + 1,
                                                                                         train_metric.result(),
                                                                                         val_metric.result()))
                     if val_metric.result() < previous_val_loss:

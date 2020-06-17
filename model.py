@@ -41,7 +41,7 @@ class FFN(tf.keras.Model):
         self.block_2 = DDBlock(units=256, activation='relu', rate=0.5)
         self.block_3 = DDBlock(units=256, activation='relu', rate=0.5)
         self.block_4 = DDBlock(units=256, activation='relu', rate=0.0)
-        self.linear_output = Dense(units=1, activation='sigmoid')
+        self.linear_output = Dense(units=1, activation='linear')
         return
 
     def __call__(self, q, training=None):
@@ -177,7 +177,7 @@ def prepare_train_pipeline(norm_train_x, data_m):
 
     tf_data = tf.data.Dataset.from_tensor_slices(
         (X_mb.astype('float32'), M_mb.astype('float32'),
-         H_mb.astype('float32'))).shuffle(100000).batch(128)
+         H_mb.astype('float32'))).shuffle(100000).batch(256)
 
     return tf_data
 
@@ -189,8 +189,8 @@ def train(ori_train_x, ori_test_x, norm_train_x, data_m, norm_test_x, data_m_tes
     discriminator = create_discriminator(DIM=norm_train_x.shape[1])
 
     # Create Optimizers
-    gen_opt = tf.keras.optimizers.Adam(3e-4, name='GenOpt')
-    disc_opt = tf.keras.optimizers.Adam(3e-4, name='DiscOpt')
+    gen_opt = tf.keras.optimizers.Adam(1e-3, name='GenOpt')
+    disc_opt = tf.keras.optimizers.Adam(1e-3, name='DiscOpt')
 
     # Iteration Counter
     counter = 0
@@ -212,25 +212,20 @@ def train(ori_train_x, ori_test_x, norm_train_x, data_m, norm_test_x, data_m_tes
             disc_running_avg.append(dl.numpy())
 
         # On Epoch End
-        print('Generator Epoch Loss: ' + str(np.array(gen_running_avg).mean()) + ' Discriminator Epoch Loss: ' + str(
-            np.array(disc_running_avg).mean()))
+        #print('Generator Epoch Loss: ' + str(np.array(gen_running_avg).mean()) + ' Discriminator Epoch Loss: ' + str(
+        #    np.array(disc_running_avg).mean()))
 
-        # On Epoch End
-        train_rmse, train_frame_new = evaluation_step(generator=generator, data_m=data_m, norm_data_x=norm_train_x,
-                                                      data_x=train_x,
-                                                      ori_data_x=ori_train_x, normalizer=normalizer)
-        print(f"TRAIN RMSE:{train_rmse}")
+        #print(f"TRAIN RMSE:{train_rmse}")
         # On Epoch End
         rmse_new, test_frame_new = evaluation_step(generator=generator, data_m=data_m_test, norm_data_x=norm_test_x,
                                                    data_x=test_x,
                                                    ori_data_x=ori_test_x, normalizer=normalizer)
-        print(f"TEST RMSE:{rmse_new}")
+        #print(f"TEST RMSE:{rmse_new}")
         if rmse_new < rmse_old:
             rmse_old = rmse_new
-            train_frame = train_frame_new
             test_frame = test_frame_new
             # generator.save(f'./models/{dataset_name}.h5')
         else:
             counter += 1
         if counter > 5:
-            return train_frame, test_frame
+            return test_frame

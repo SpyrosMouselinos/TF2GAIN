@@ -26,7 +26,8 @@ def perform_experiments(data_name, miss_rate):
         'credit': 'outcome',
         'spam': 'spam',
         'pima': 'outcome',
-        'heart': 'outcome'
+        'heart': 'outcome',
+        '9': 'foVolConsumption'
     }
 
     dataset_task = {
@@ -34,7 +35,8 @@ def perform_experiments(data_name, miss_rate):
         'credit': 'classification',
         'spam': 'classification',
         'pima': 'classification',
-        'heart': 'classification'
+        'heart': 'classification',
+        '9': 'regression'
     }
 
     task = dataset_task[data_name]
@@ -49,7 +51,7 @@ def perform_experiments(data_name, miss_rate):
                                    target_column=target_column, train_y=train_y, test_y=test_y,
                                    dataset_name=str(data_name) + '_' + str(int(100 * miss_rate)))
 
-    normalizer = MinMaxNormalizer(excluded_columns=target_column)
+    normalizer = MinMaxNormalizer(excluded_columns=None)
     normalizer.fit(train_frame)
     train_frame = normalizer.transform(train_frame, fill_na=0)
     test_frame = normalizer.transform(test_frame, fill_na=0)
@@ -69,7 +71,8 @@ def perform_experiments(data_name, miss_rate):
     return
 
 
-experiment_names = ['breast', 'credit', 'spam', 'pima', 'heart']
+experiment_names = ['9']
+                    #'credit', 'spam', 'pima', 'heart']
 missing_rates = [0.2, 0.4, 0.6, 0.8]
 
 # In order to run the same code without the tensorflow compiler creating a bug due to errors Use the following: See

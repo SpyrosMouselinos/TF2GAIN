@@ -77,7 +77,7 @@ def rounding(imputed_data, data_x):
     for i in range(dim):
         temp = data_x[~np.isnan(data_x[:, i]), i]
         # Only for the categorical variable
-        if len(np.unique(temp)) < 5:
+        if len(np.unique(temp)) < 15:
             rounded_data[:, i] = np.round(rounded_data[:, i])
 
     return rounded_data
